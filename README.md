@@ -33,6 +33,31 @@ playwright install
 python main.py
 ```
 
+### Cloudflare bypass (openstat.psa.gov.ph)
+
+Kung na-block ng Cloudflare "Performing security verification", may dalawang paraan para ma-bypass:
+
+**Option A – FlareSolverr (recommended, ~90% success)**  
+1. Install [Docker](https://docs.docker.com/get-docker/).  
+2. I-run ang FlareSolverr:
+```bash
+docker run -d --name flaresolverr -p 8191:8191 -e LOG_LEVEL=info --restart unless-stopped ghcr.io/flaresolverr/flaresolverr:latest
+```
+3. Sa `.env` idagdag:
+```
+FLARESOLVERR_URL=http://localhost:8191
+```
+4. Run ulit: `python main.py`. Kokopyahin ng script ang cookies mula sa FlareSolverr papunta sa browser.
+
+**Option B – curl_cffi (TLS fingerprint)**  
+Naka-include na sa `requirements.txt`. Kung hindi mo gagamitin FlareSolverr, susubukan ng script ang `curl_cffi` para kunin ang cookies (Chrome impersonation). Minsan sapat na ito para makalusot.
+
+**Option C – Manual mode**  
+Kung hindi pa rin makalusot: mag-download ng Excel sa **normal browser** (Chrome/Edge), ilagay ang mga file sa folder na `manual_downloads`, tapos:
+```bash
+python run_manual.py
+```
+
 ---
 
 ##  Cleaning Process:
