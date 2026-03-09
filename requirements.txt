@@ -13,3 +13,4 @@ mysqlclient
 python-dotenv
 openpyxl
 rich
+flask

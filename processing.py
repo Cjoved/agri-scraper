@@ -158,7 +158,7 @@ def _process_one_sheet(data, sheet_name, commodity_type, unwanted_texts, log_pre
     data_long["Year"] = data_long["column_index"].apply(
         lambda x: year_col_map[x - 2] if x - 2 < len(year_col_map) else None
     )
-    data_long["Period"] = data_long["column_index"].apply(
+    data_long["Month"] = data_long["column_index"].apply(
         lambda x: months[x - 2] if x - 2 < len(months) else None
     )
     data_long.drop(columns=["column_index"], inplace=True)
@@ -193,27 +193,17 @@ def _process_one_sheet(data, sheet_name, commodity_type, unwanted_texts, log_pre
         ["Geolocation", "Commodity"]
     ].fillna("")
 
-    def impute_prices(group):
-        if group["Price"].notna().sum() == 0:
-            print(
-                f"{log_prefix}No historical data for {group['Commodity'].iloc[0]}. Skipping imputation."
-            )
-            return group
+    # Impute per commodity using a loop (pandas 3.0-safe — groupby+apply drops key column)
+    for comm_val, idx in data_long.groupby("Commodity").groups.items():
+        subset = data_long.loc[idx, ["Price"]]
+        if subset["Price"].notna().sum() == 0:
+            print(f"{log_prefix}No historical data for {comm_val}. Skipping imputation.")
+            continue
         try:
             imputer = SimpleImputer(strategy="mean")
-            group.loc[:, "Price"] = imputer.fit_transform(group[["Price"]])
-            group.loc[:, "Price"] = group["Price"].round(2)
+            data_long.loc[idx, "Price"] = imputer.fit_transform(subset).round(2)
         except Exception as e:
-            print(f"{log_prefix}Imputation failed for {group['Commodity'].iloc[0]}: {e}!")
-        return group
-
-    data_long = (
-        data_long.groupby(
-            "Commodity", group_keys=False, observed=True, as_index=False
-        )
-        .apply(impute_prices)
-        .reset_index(drop=True)
-    )
+            print(f"{log_prefix}Imputation failed for {comm_val}: {e}!")
     return data_long
 
 

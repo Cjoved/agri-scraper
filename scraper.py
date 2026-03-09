@@ -11,7 +11,7 @@ import pandas as pd
 import time
 
 try:
-    from cloudflare_bypass import get_cloudflare_cookies
+    from bypass import get_cloudflare_cookies
 except ImportError:
     get_cloudflare_cookies = lambda: []
 
@@ -393,8 +393,8 @@ def scrape_all():
         # Siguraduhing may Commodity column para makita ng supervisor (Rice, Cereals, etc.)
         if "Commodity" not in final_df.columns:
             final_df["Commodity"] = final_df.get("Commodity Type", "N/A")
-        # Ayos ng column order: Geolocation, Commodity, Price, Commodity Type, Year, Period
-        col_order = ["Geolocation", "Commodity", "Price", "Commodity Type", "Year", "Period"]
+        # Ayos ng column order: Geolocation, Commodity Type, Commodity, Year, Month, Price
+        col_order = ["Geolocation", "Commodity Type", "Commodity", "Year", "Month", "Price"]
         final_df = final_df[[c for c in col_order if c in final_df.columns]]
         output_dir = os.path.join(os.path.expanduser("~"), "Desktop", "Agri-Price-Data_Files")
         os.makedirs(output_dir, exist_ok=True)
@@ -493,5 +493,3 @@ def navigate_with_retries(page, url, timeout=45000):
             time.sleep(5)
             attempt += 1
     return False
-
-    
