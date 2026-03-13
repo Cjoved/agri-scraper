@@ -356,7 +356,7 @@ def run_text():
     if not os.path.isfile(PINOYRICE_INPUT_JSONL):
         console.print(f"[dim]No corpus JSONL; skip text processing.[/dim]")
         return 0
-    console.print(f"[dim]Text: {PINOYRICE_INPUT_JSONL} → chunked + per_file_cpt[/dim]")
+    console.print(f"[dim]Text: {PINOYRICE_INPUT_JSONL} -> chunked + per_file_cpt[/dim]")
     os.makedirs(PINOYRICE_PROCESSED_DIR, exist_ok=True)
     os.makedirs(PINOYRICE_PER_FILE_CPT_DIR, exist_ok=True)
     for f in Path(PINOYRICE_PER_FILE_CPT_DIR).glob("*.json"):
