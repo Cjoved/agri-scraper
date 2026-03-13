@@ -153,8 +153,17 @@ def _page_is_cloudflare_522(page):
         return False
 
 
+def _openstat_enabled() -> bool:
+    """True kung OPENSTAT=true sa .env; false = hindi gagana ang OpenSTAT scraper."""
+    v = (os.getenv("OPENSTAT") or "true").strip().lower()
+    return v in ("true", "1", "yes")
+
+
 @require_internet
 def scrape_all():
+    if not _openstat_enabled():
+        console.print("[yellow]OPENSTAT=false. OpenSTAT scraper disabled. Set OPENSTAT=true in .env to run.[/yellow]")
+        return
     all_data_frames = []
     console.rule(f"[bold cyan]Agri-Price Scraper Started at {timestamp}")
 
@@ -493,3 +502,7 @@ def navigate_with_retries(page, url, timeout=45000):
             time.sleep(5)
             attempt += 1
     return False
+
+
+if __name__ == "__main__":
+    scrape_all()

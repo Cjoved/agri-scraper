@@ -36,3 +36,6 @@ Thumbs.db
 *.bak
 *.rej
 *.patch
+*.pdf
+*.txt
+*venv
