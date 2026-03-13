@@ -38,4 +38,7 @@ Thumbs.db
 *.patch
 *.pdf
 *.txt
+
+# ---- Virtual env (do not track) ----
+venv/
 *venv
