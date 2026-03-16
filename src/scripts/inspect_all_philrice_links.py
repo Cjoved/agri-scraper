@@ -1,11 +1,11 @@
 """
-Inspect actual HTML ng lahat ng PhilRice pages: e-magazine, rd-highlights,
-rice-science-for-decision-makers, references, milestones. Para ma-check proper href/buttons.
-Run: python inspect_all_philrice_links.py
+Inspect PhilRice pages (e-magazine, rd-highlights, etc.) – href/buttons for PDF links.
+Run from project root: python -m src.scripts.inspect_all_philrice_links
 """
 from playwright.sync_api import sync_playwright
 import json
 import os
+from src.config import data_path
 
 URLS = [
     "https://www.philrice.gov.ph/e-magazine/",
@@ -24,10 +24,9 @@ def inspect_page(page, url: str) -> list:
         download_attr = a.get_attribute("download")
         if not href:
             continue
-        # Read, Download, o .pdf, o taon (rd-highlights)
         is_read_dl = "read" in text.lower() or "download" in text.lower()
         is_pdf = ".pdf" in href.lower() or "wpdmdl" in href.lower()
-        is_year = text.strip().isdigit() or (len(text) in (4, 9) and "20" in text)  # 2023, 2008-2011
+        is_year = text.strip().isdigit() or (len(text) in (4, 9) and "20" in text)
         if not (is_read_dl or is_pdf or is_year):
             continue
         try:
@@ -71,7 +70,10 @@ def main():
                 all_results[name] = {"url": url, "error": str(e), "links": []}
         browser.close()
 
-    out_path = os.path.join(os.path.dirname(__file__), "philrice_all_links_inspect.json")
+    out_path = data_path("philrice_all_links_inspect.json")
+    out_dir = os.path.dirname(out_path)
+    if out_dir:
+        os.makedirs(out_dir, exist_ok=True)
     with open(out_path, "w", encoding="utf-8") as f:
         json.dump(all_results, f, indent=2, ensure_ascii=False)
     print("\nSaved:", out_path)

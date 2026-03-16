@@ -55,26 +55,26 @@ def main():
 
     if philrice:
         console.rule("[bold cyan]PhilRice – PDF Scrape[/bold cyan]")
-        import scraper_philrice
+        from src.scrapers import philrice as scraper_philrice
         scraper_philrice.run()
         console.rule("[bold cyan]PhilRice – PDF Process (clean -> JSONL)[/bold cyan]")
-        import processing_philrice
+        from src.services import philrice as processing_philrice
         processing_philrice.run()
     elif philrice_news:
         console.rule("[bold cyan]PhilRice News – Scrape[/bold cyan]")
-        import scraper_philrice_news
+        from src.scrapers import philrice_news as scraper_philrice_news
         scraper_philrice_news.run()
         console.rule("[bold cyan]PhilRice News – Process (.txt -> CPT JSON)[/bold cyan]")
-        import processing_philrice_news
+        from src.services import philrice_news as processing_philrice_news
         processing_philrice_news.run()
     elif pinoyrice:
         console.rule("[bold cyan]PinoyRice – Scrape (text + PDF)[/bold cyan]")
-        import scraper_pinoyrice
+        from src.scrapers import pinoyrice as scraper_pinoyrice
         scraper_pinoyrice.run()
     elif openstat:
         console.rule("[bold cyan]OpenSTAT – Scrape[/bold cyan]")
-        import scraper
-        scraper.scrape_all()
+        from src.scrapers import openstat as openstat_scraper
+        openstat_scraper.scrape_all()
     else:
         console.print("[yellow]Set PHILRICE=true, PHILRICE_NEWS=true, PINOYRICE=true, o OPENSTAT=true sa .env (isa lang per run).[/yellow]")
 

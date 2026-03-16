@@ -3,16 +3,18 @@ PhilRice PDF scraper – collects PDFs from PhilRice downloads and knowledge pro
 Uses Playwright (same stack as OpenSTAT scraper). Checkpoint/resume supported.
 """
 from playwright.sync_api import sync_playwright
-from utils import wait_for_selector_with_retry, require_internet
+from src.utils import wait_for_selector_with_retry, require_internet
+from src.config import data_path
 from dotenv import load_dotenv
 from rich.console import Console
-from datetime import datetime
 import os
 import re
 import json
 import time
 import urllib.parse
 from pathlib import Path
+
+from src.agri_corpus.scraper_utils import normalize_url, load_checkpoint, save_checkpoint
 
 try:
     from playwright_stealth import stealth_sync
@@ -23,9 +25,8 @@ except ImportError:
 load_dotenv()
 console = Console()
 
-_PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
-PHILRICE_PDFS_DIR = os.path.join(_PROJECT_DIR, "philrice_pdfs")
-CHECKPOINT_PATH = os.path.join(_PROJECT_DIR, "philrice_checkpoint.json")
+PHILRICE_PDFS_DIR = data_path("philrice_pdfs")
+CHECKPOINT_PATH = data_path("checkpoints", "philrice_checkpoint.json")
 
 # PhilRice: main pages at sub-pages na may listahan ng PDF (kailangan puntahan/click-through)
 PHILRICE_BASE_URLS = [
@@ -70,26 +71,13 @@ def _should_skip_pdf(url: str) -> bool:
 
 def _load_checkpoint():
     """Load set of already-downloaded PDF URLs."""
-    if not os.path.isfile(CHECKPOINT_PATH):
-        return set()
-    try:
-        with open(CHECKPOINT_PATH, "r", encoding="utf-8") as f:
-            data = json.load(f)
-        return set(data.get("downloaded_urls", []))
-    except Exception:
-        return set()
+    data = load_checkpoint(CHECKPOINT_PATH, default={"downloaded_urls": []})
+    return set(data.get("downloaded_urls", []))
 
 
 def _save_checkpoint(downloaded_urls):
     """Save checkpoint with downloaded PDF URLs."""
-    try:
-        with open(CHECKPOINT_PATH, "w", encoding="utf-8") as f:
-            json.dump({
-                "downloaded_urls": sorted(downloaded_urls),
-                "updated": datetime.now().isoformat(),
-            }, f, indent=2)
-    except Exception as e:
-        console.print(f"[dim]Could not save checkpoint: {e}[/dim]")
+    save_checkpoint(CHECKPOINT_PATH, {"downloaded_urls": sorted(downloaded_urls)})
 
 
 def _is_pdf_link(href: str) -> bool:
@@ -105,14 +93,7 @@ def _is_pdf_link(href: str) -> bool:
 
 def _normalize_url(url: str, base: str) -> str:
     """Make absolute URL."""
-    if not url or not url.strip():
-        return ""
-    url = url.strip()
-    if url.startswith("http://") or url.startswith("https://"):
-        return url
-    if url.startswith("//"):
-        return "https:" + url
-    return urllib.parse.urljoin(base, url)
+    return normalize_url(url, base) or ""
 
 
 def _safe_filename(url: str, index: int) -> str:

@@ -1,24 +1,18 @@
 """
-One-off helper script to move existing PinoyRice .txt files
-from the old folder:
-  pinoyrice_processed/per_file/*.txt
-to the new dedicated raw-text folder:
-  pinoyrice_txt/*.txt
-
-Run once after the refactor:
-  python migrate_pinoyrice_txt.py
+One-off: move PinoyRice .txt from pinoyrice_processed/per_file to pinoyrice_txt (under data/).
+Run from project root: python -m src.scripts.migrate_pinoyrice_txt
 """
 import os
 import shutil
 from pathlib import Path
 
 from rich.console import Console
+from src.config import data_path
 
 console = Console()
 
-PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
-OLD_DIR = os.path.join(PROJECT_DIR, "pinoyrice_processed", "per_file")
-NEW_DIR = os.path.join(PROJECT_DIR, "pinoyrice_txt")
+OLD_DIR = data_path("pinoyrice_processed", "per_file")
+NEW_DIR = data_path("pinoyrice_txt")
 
 
 def run():
@@ -52,4 +46,3 @@ def run():
 
 if __name__ == "__main__":
     run()
-

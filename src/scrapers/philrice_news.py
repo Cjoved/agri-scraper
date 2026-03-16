@@ -3,7 +3,8 @@ PhilRice News scraper – bawat article: text mula title hanggang (kasama) ang
 "HOW DOES THIS POST MAKE YOU FEEL?" at mga percentage. Filename = philrice_news_MM-DD-YY.txt (posted date).
 """
 from playwright.sync_api import sync_playwright
-from utils import require_internet
+from src.utils import require_internet
+from src.config import data_path
 from dotenv import load_dotenv
 from rich.console import Console
 from datetime import datetime
@@ -21,10 +22,9 @@ except ImportError:
 load_dotenv()
 console = Console()
 
-_PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
 PHILRICE_NEWS_URL = "https://www.philrice.gov.ph/news/"
-PHILRICE_NEWS_DIR = os.path.join(_PROJECT_DIR, "philrice_news")
-CHECKPOINT_PATH = os.path.join(_PROJECT_DIR, "philrice_news_checkpoint.json")
+PHILRICE_NEWS_DIR = data_path("philrice_news")
+CHECKPOINT_PATH = data_path("checkpoints", "philrice_news_checkpoint.json")
 
 DELAY_PAGE = int(os.getenv("PHILRICE_NEWS_DELAY", "3"))
 
@@ -122,6 +122,7 @@ def _load_checkpoint() -> set:
 
 def _save_checkpoint(scraped_urls: list):
     try:
+        os.makedirs(os.path.dirname(CHECKPOINT_PATH), exist_ok=True)
         with open(CHECKPOINT_PATH, "w", encoding="utf-8") as f:
             json.dump({"scraped_urls": scraped_urls, "updated": datetime.now().isoformat()}, f, indent=2)
     except Exception as e:

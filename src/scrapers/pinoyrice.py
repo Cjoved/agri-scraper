@@ -21,16 +21,18 @@ Fixes applied (v2):
   [FIX 6] headless mode is now env-configurable (HEADLESS=false to show browser, default is headless=True).
 """
 from playwright.sync_api import sync_playwright
-from utils import require_internet
+from src.utils import require_internet
+from src.config import data_path
 from dotenv import load_dotenv
 from rich.console import Console
-from datetime import datetime
 import os
 import re
 import json
 import time
 import urllib.parse
 from pathlib import Path
+
+from src.agri_corpus.scraper_utils import normalize_url, load_checkpoint, save_checkpoint
 
 try:
     from playwright_stealth import stealth_sync
@@ -41,12 +43,11 @@ except ImportError:
 load_dotenv()
 console = Console()
 
-_PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
 PINOYRICE_BASE = "https://www.pinoyrice.com"
-PINOYRICE_JSONL = os.path.join(_PROJECT_DIR, "pinoyrice_processed", "pinoyrice_corpus.jsonl")
-PINOYRICE_PDFS_DIR = os.path.join(_PROJECT_DIR, "pinoyrice_pdfs")
-PINOYRICE_TXT_DIR = os.path.join(_PROJECT_DIR, "pinoyrice_txt")
-CHECKPOINT_PATH = os.path.join(_PROJECT_DIR, "pinoyrice_checkpoint.json")
+PINOYRICE_JSONL = data_path("pinoyrice_processed", "pinoyrice_corpus.jsonl")
+PINOYRICE_PDFS_DIR = data_path("pinoyrice_pdfs")
+PINOYRICE_TXT_DIR = data_path("pinoyrice_txt")
+CHECKPOINT_PATH = data_path("checkpoints", "pinoyrice_checkpoint.json")
 
 # Pages we SCRAPE FOR TEXT (real article content only). Do not add listing/catalog pages.
 CONTENT_PAGES = [
@@ -94,33 +95,15 @@ DELAY_PDF = int(os.getenv("PINOYRICE_DELAY_PDF", "2"))
 
 
 def _normalize_url(href: str, base: str) -> str | None:
-    if not href or not href.strip():
-        return None
-    href = href.strip()
-    if href.startswith("http://") or href.startswith("https://"):
-        return href
-    if href.startswith("//"):
-        return "https:" + href
-    return urllib.parse.urljoin(base, href)
+    return normalize_url(href, base)
 
 
 def _load_checkpoint():
-    if not os.path.isfile(CHECKPOINT_PATH):
-        return {"scraped_urls": [], "downloaded_urls": []}
-    try:
-        with open(CHECKPOINT_PATH, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception:
-        return {"scraped_urls": [], "downloaded_urls": []}
+    return load_checkpoint(CHECKPOINT_PATH, default={"scraped_urls": [], "downloaded_urls": []})
 
 
 def _save_checkpoint(data: dict):
-    try:
-        data["updated"] = datetime.now().isoformat()
-        with open(CHECKPOINT_PATH, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=2)
-    except Exception as e:
-        console.print(f"[dim]Could not save checkpoint: {e}[/dim]")
+    save_checkpoint(CHECKPOINT_PATH, data)
 
 
 def _append_jsonl(record: dict, path: str):
@@ -882,11 +865,11 @@ def run():
 
     # After scrape: run processing (text + PDF) so corpus/chunks and per-file JSONs are up to date
     try:
-        from processing_pinoyrice import run as run_processing
+        from src.services.pinoyrice import run as run_processing
         run_processing()
     except Exception as e:
         console.print(f"[yellow]Processing (text+PDF) failed: {e}[/yellow]")
-        console.print("[dim]Run manually: python processing_pinoyrice.py[/dim]")
+        console.print("[dim]Run manually: python -m src.services.pinoyrice[/dim]")
 
 
 if __name__ == "__main__":

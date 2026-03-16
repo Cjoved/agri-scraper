@@ -1,15 +1,14 @@
 """
-Validate PhilRice JSONL output before handoff – para sigurado na tama format.
-Run: python validate_philrice_jsonl.py [path/to/corpus.jsonl]
-Default: philrice_processed/philrice_corpus.jsonl (or sample).
+Validate PhilRice JSONL format. Run from project root: python -m src.scripts.validate_philrice_jsonl [path]
+Default path: data/philrice_processed/philrice_corpus.jsonl
 """
 import json
 import sys
 from pathlib import Path
+from src.config import data_path
 
-_PROJECT_DIR = Path(__file__).resolve().parent
-DEFAULT_PATH = _PROJECT_DIR / "philrice_processed" / "philrice_corpus.jsonl"
-SAMPLE_PATH = _PROJECT_DIR / "philrice_processed" / "philrice_sample_cleaned.jsonl"
+DEFAULT_PATH = Path(data_path("philrice_processed", "philrice_corpus.jsonl"))
+SAMPLE_PATH = Path(data_path("philrice_processed", "philrice_sample_cleaned.jsonl"))
 
 REQUIRED_KEYS = ["text", "input"]
 OPTIONAL_KEYS = ["content", "source", "doc_id", "filename", "page"]

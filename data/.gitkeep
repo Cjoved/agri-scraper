@@ -1,0 +1,5 @@
+# All scraped/processed data lives here:
+#   philrice_pdfs/   philrice_processed/   philrice_news/   philrice_news_processed/
+#   pinoyrice_pdfs/  pinoyrice_processed/  pinoyrice_txt/
+#   checkpoints/     (philrice_checkpoint.json, pinoyrice_checkpoint.json, etc.)
+#   manual_downloads/ (OpenSTAT Excel fallback)

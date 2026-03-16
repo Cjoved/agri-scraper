@@ -1,7 +1,17 @@
+"""
+OpenSTAT (PSA) scraper – Agri-Price data from openstat.psa.gov.ph.
+Uses Playwright; Excel download → process (src.services.openstat) → CSV + MySQL.
+"""
 from playwright.sync_api import sync_playwright
-from utils import require_internet, wait_for_selector_with_retry, wait_for_internet
-from processing import download_and_process_excel
-from database import store_data_in_mysql
+from src.utils import (
+    require_internet,
+    wait_for_selector_with_retry,
+    wait_for_internet,
+    get_cloudflare_cookies,
+    store_data_in_mysql,
+)
+from src.config import data_path
+from src.services.openstat import download_and_process_excel
 from dotenv import load_dotenv
 from rich.console import Console
 from datetime import datetime
@@ -11,22 +21,20 @@ import pandas as pd
 import time
 
 try:
-    from bypass import get_cloudflare_cookies
-except ImportError:
-    get_cloudflare_cookies = lambda: []
-
-try:
     from playwright_stealth import stealth_sync
     HAS_STEALTH = True
 except ImportError:
     HAS_STEALTH = False
 
-# Initialize
 console = Console()
 load_dotenv()
-urls = os.getenv("URLS").split(",")
-
+urls = os.getenv("URLS", "").split(",")
 timestamp = datetime.now().strftime("%B%d,%Y_%H-%M-%S")
+
+# OpenSTAT outputs under data/
+SCRAPER_DOWNLOADS_DIR = data_path("openstat_downloads")
+CHECKPOINT_PATH = data_path("checkpoints", "openstat_checkpoint.json")
+
 
 @require_internet
 def select_dropdown_options(page, year_indexes, finalize=False):
@@ -48,7 +56,6 @@ def select_dropdown_options(page, year_indexes, finalize=False):
         """)
         page.wait_for_timeout(1500)
 
-    # Handle year selection
     wait_for_selector_with_retry(page, year_selector)
     page.eval_on_selector(year_selector, """
         el => {
@@ -79,23 +86,17 @@ def select_dropdown_options(page, year_indexes, finalize=False):
 
 
 def ensure_beginning_of_row_checked(page, variable_title: str):
-    """
-    Ticks 'Beginning of row' checkbox inside the variable panel (e.g., Commodity, Geolocation, Period).
-    Ginagamit natin para siguradong nasa rows ang mga dimension para maging proper columns sa Excel.
-    """
-    # Hanapin ang panel base sa title text (Commodity / Geolocation / Period / Year)
+    """Ticks 'Beginning of row' checkbox inside the variable panel."""
     panel = page.locator(
         f"xpath=//div[.//text()[contains(normalize-space(.), '{variable_title}')]]"
     ).first
 
-    # Checkbox na may label na 'Beginning of row' sa loob ng panel
     cb = panel.locator(
         "xpath=.//input[@type='checkbox' and (following-sibling::label[contains(., 'Beginning of row')] "
         "or parent::label[contains(., 'Beginning of row')] "
         "or @id=//label[contains(., 'Beginning of row')]/@for)]"
     ).first
 
-    # Fallback: global search kung hindi mahanap sa panel
     if cb.count() == 0:
         label = page.locator("xpath=//label[contains(., 'Beginning of row')]").first
         if label.count() == 0:
@@ -104,27 +105,15 @@ def ensure_beginning_of_row_checked(page, variable_title: str):
         page.wait_for_timeout(300)
         return
 
-    # I-tick kung hindi pa naka-check
     if not cb.is_checked():
         cb.check()
         page.wait_for_timeout(300)
 
 
-# Folder kung saan ilalagay ang na-download na Excel (temporary) mula sa OpenSTAT
-SCRAPER_DOWNLOADS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "scraper_downloads")
-
-# Sa website ng OpenStat: "Number of selected cells exceeds the maximum allowed 100,000".
-# Nagdadagdag tayo ng years isa-isa; kapag lumabas ang error sa site, hihinto at gagamitin ang last good selection (bawas taon).
-# Safety cap: max years per selection para hindi masyadong mabigat sa isang request (optional).
 MAX_YEARS_PER_SELECTION_SAFETY = 50
-
-# Checkpoint file for resume: when RESUME_CHECKPOINT=true we skip URLs in completed_url_indices
-_PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
-CHECKPOINT_PATH = os.path.join(_PROJECT_DIR, "scraper_checkpoint.json")
 
 
 def _load_checkpoint():
-    """Load checkpoint if exists. Returns set of completed url indices."""
     if not os.path.isfile(CHECKPOINT_PATH):
         return set()
     try:
@@ -136,8 +125,8 @@ def _load_checkpoint():
 
 
 def _save_checkpoint(completed_url_indices):
-    """Save checkpoint with completed URL indices."""
     try:
+        os.makedirs(os.path.dirname(CHECKPOINT_PATH), exist_ok=True)
         with open(CHECKPOINT_PATH, "w", encoding="utf-8") as f:
             json.dump({"completed_url_indices": sorted(completed_url_indices)}, f, indent=2)
     except Exception as e:
@@ -145,7 +134,6 @@ def _save_checkpoint(completed_url_indices):
 
 
 def _page_is_cloudflare_522(page):
-    """True if current page is Cloudflare Error 522 (connection timed out to origin)."""
     try:
         content = page.content()
         return "Error code 522" in content or ("Connection timed out" in content and "Cloudflare" in content)
@@ -154,7 +142,6 @@ def _page_is_cloudflare_522(page):
 
 
 def _openstat_enabled() -> bool:
-    """True kung OPENSTAT=true sa .env; false = hindi gagana ang OpenSTAT scraper."""
     v = (os.getenv("OPENSTAT") or "true").strip().lower()
     return v in ("true", "1", "yes")
 
@@ -164,13 +151,16 @@ def scrape_all():
     if not _openstat_enabled():
         console.print("[yellow]OPENSTAT=false. OpenSTAT scraper disabled. Set OPENSTAT=true in .env to run.[/yellow]")
         return
+    if not urls or not any(u and u.strip() for u in urls):
+        console.print("[yellow]URLS not set in .env. Add OpenSTAT URLs (comma-separated).[/yellow]")
+        return
+
     all_data_frames = []
-    console.rule(f"[bold cyan]Agri-Price Scraper Started at {timestamp}")
+    console.rule(f"[bold cyan]Agri-Price Scraper (OpenSTAT) Started at {timestamp}")
 
     os.makedirs(SCRAPER_DOWNLOADS_DIR, exist_ok=True)
     downloads_path = os.path.abspath(SCRAPER_DOWNLOADS_DIR)
 
-    # Anti-detection args; i-set ang download folder para hindi magulo ang Windows Downloads
     launch_args = [
         "--disable-blink-features=AutomationControlled",
         "--disable-automation",
@@ -181,14 +171,13 @@ def scrape_all():
     ]
 
     with sync_playwright() as p:
-        # Chrome muna para tumugma sa FlareSolverr (Chrome ang gamit nito sa Docker)
         try:
             browser = p.chromium.launch(
                 headless=False,
                 channel="chrome",
                 args=launch_args,
             )
-            console.print(f"[dim]Using Google Chrome (stealth). Excel downloads → {downloads_path}[/dim]")
+            console.print(f"[dim]Using Google Chrome. Excel downloads → {downloads_path}[/dim]")
         except Exception:
             try:
                 browser = p.chromium.launch(
@@ -196,12 +185,11 @@ def scrape_all():
                     channel="msedge",
                     args=launch_args,
                 )
-                console.print(f"[dim]Using Microsoft Edge (stealth). Excel downloads → {downloads_path}[/dim]")
+                console.print(f"[dim]Using Microsoft Edge. Excel downloads → {downloads_path}[/dim]")
             except Exception:
                 browser = p.chromium.launch(headless=False, args=launch_args)
-                console.print(f"[dim]Using Chromium (stealth). Excel downloads → {downloads_path}[/dim]")
+                console.print(f"[dim]Using Chromium. Excel downloads → {downloads_path}[/dim]")
 
-        # Kunin muna bypass cookies (at User-Agent mula FlareSolverr) bago gumawa ng context
         first_url = next((u.strip() for u in urls if u and u.strip()), None)
         bypass_cookies, bypass_user_agent = get_cloudflare_cookies(first_url, log=lambda msg: console.print(msg))
 
@@ -214,7 +202,7 @@ def scrape_all():
         }
         if bypass_user_agent:
             context_options["user_agent"] = bypass_user_agent
-            console.print("[dim]Gamit ang User-Agent mula FlareSolverr (para tumugma ang session).[/dim]")
+            console.print("[dim]Gamit ang User-Agent mula FlareSolverr.[/dim]")
         context = browser.new_context(**context_options)
 
         if bypass_cookies:
@@ -238,10 +226,8 @@ def scrape_all():
             console.print("[dim]Install playwright-stealth for better bypass: pip install playwright-stealth[/dim]")
 
         page.set_default_timeout(60000)
-        # Maikling delay bago unang navigation (parang human)
         time.sleep(1)
 
-        # Checkpoint: resume = skip already-completed URLs; false = start from scratch
         resume_checkpoint = os.getenv("RESUME_CHECKPOINT", "false").strip().lower() in ("true", "1", "yes")
         if resume_checkpoint:
             completed_url_indices = _load_checkpoint()
@@ -252,26 +238,27 @@ def scrape_all():
             if os.path.isfile(CHECKPOINT_PATH):
                 try:
                     os.remove(CHECKPOINT_PATH)
-                    console.print("[dim]Checkpoint cleared (RESUME_CHECKPOINT=false). Starting from first URL.[/dim]")
+                    console.print("[dim]Checkpoint cleared (RESUME_CHECKPOINT=false).[/dim]")
                 except Exception:
                     pass
 
         for url_index, url in enumerate(urls):
+            if not url or not url.strip():
+                continue
+            url = url.strip()
             if url_index in completed_url_indices:
-                console.print(f"[dim]Skipping URL {url_index + 1}/{len(urls)} (already completed in checkpoint).[/dim]")
+                console.print(f"[dim]Skipping URL {url_index + 1}/{len(urls)} (already completed).[/dim]")
                 continue
             console.rule(f"[bold green]Processing URL {url_index + 1}/{len(urls)}")
-            # Navigate: on timeout/522 we skip this link and continue with next
             if not navigate_with_retries(page, url):
-                console.print(f"[yellow]Skipping URL {url_index + 1} (connection timeout or Error 522). Continuing next URL...[/yellow]")
+                console.print(f"[yellow]Skipping URL {url_index + 1} (connection timeout or Error 522).[/yellow]")
                 continue
             try:
                 wait_for_cloudflare_check(page, url_index)
             except Exception as e:
-                console.print(f"[yellow]Skipping URL {url_index + 1} (Cloudflare check failed: {e}). Continuing next URL...[/yellow]")
+                console.print(f"[yellow]Skipping URL {url_index + 1} (Cloudflare check failed: {e}).[/yellow]")
                 continue
 
-            # Siguraduhing naka-'Beginning of row' ang pangunahing dimensions
             try:
                 ensure_beginning_of_row_checked(page, "Geolocation")
                 ensure_beginning_of_row_checked(page, "Commodity")
@@ -283,25 +270,23 @@ def scrape_all():
             wait_for_selector_with_retry(page, year_selector, timeout=30000)
             total_years = page.eval_on_selector(year_selector, "el => el.options.length")
             console.print(f"[bold blue]Years available:[/bold blue] {total_years}")
-            console.print(f"[dim]Per batch: magdadagdag ng years hanggang 100k limit ng site; ang natitirang years kukunin sa susunod na batch hanggang maubos lahat.[/dim]")
 
             remaining_years = list(range(total_years))
-            url_skipped_due_to_error = False  # True if we skip rest of URL due to 522/timeout
-            url_data_frames = []  # Per-URL list so we can apply row cap before adding to all_data_frames
+            url_skipped_due_to_error = False
+            url_data_frames = []
 
             while remaining_years:
-                console.print(f"[dim]--- Batch: kukunin ang {len(remaining_years)} natitirang taon ---[/dim]")
+                console.print(f"[dim]--- Batch: {len(remaining_years)} years remaining ---[/dim]")
                 current_batch = []
                 for year_idx in remaining_years:
-                    # Safety: huwag lumampas ng 50 years sa isang selection
                     if len(current_batch) >= MAX_YEARS_PER_SELECTION_SAFETY:
                         console.print(f"[dim]Safety cap ({MAX_YEARS_PER_SELECTION_SAFETY} years) reached.[/dim]")
                         break
                     test_batch = current_batch + [year_idx]
-                    console.print(f"[dim]Testing selection:[/dim] {len(test_batch)} years (adding year index {year_idx})")
+                    console.print(f"[dim]Testing selection: {len(test_batch)} years (adding year index {year_idx})[/dim]")
 
                     if not navigate_with_retries(page, url):
-                        console.print(f"[yellow]Connection failed (522/timeout). Skipping rest of URL {url_index + 1}.[/yellow]")
+                        console.print(f"[yellow]Connection failed. Skipping rest of URL {url_index + 1}.[/yellow]")
                         remaining_years = []
                         url_skipped_due_to_error = True
                         break
@@ -314,13 +299,12 @@ def scrape_all():
                     select_dropdown_options(page, test_batch)
 
                     try:
-                        # Galing sa website: "Number of selected cells exceeds the maximum allowed 100,000"
                         is_error = page.is_visible(
                             "#ctl00_ContentPlaceHolderMain_VariableSelector1_VariableSelector1_SelectionErrorlabel",
                             timeout=5000
                         )
                         if is_error:
-                            console.print("[yellow]Lumabas sa site: lumampas sa 100,000 cells. Gagamitin ang nakaraang selection; ang natitirang years sa susunod na batch.[/yellow]")
+                            console.print("[yellow]Site: 100k cells limit. Using previous selection.[/yellow]")
                             break
                         else:
                             current_batch = test_batch
@@ -332,12 +316,11 @@ def scrape_all():
                     if not remaining_years:
                         break
                     skipped = remaining_years.pop(0)
-                    console.print(f"[red]Skipped year index:[/red] {skipped}")
+                    console.print(f"[red]Skipped year index: {skipped}[/red]")
                     continue
 
-                # Finalize dropdowns and download
                 if not navigate_with_retries(page, url):
-                    console.print(f"[yellow]Connection failed (522/timeout). Skipping rest of URL {url_index + 1}.[/yellow]")
+                    console.print(f"[yellow]Connection failed. Skipping rest of URL {url_index + 1}.[/yellow]")
                     remaining_years = []
                     url_skipped_due_to_error = True
                 else:
@@ -349,7 +332,6 @@ def scrape_all():
                 if not remaining_years:
                     break
                 select_dropdown_options(page, current_batch, finalize=True)
-                # Kunin ang selected commodity label(s) sa page para gamitin kung ang Excel ay "Cereals" lang ang lalabas
                 commodity_selector = "#ctl00_ContentPlaceHolderMain_VariableSelector1_VariableSelector1_VariableSelectorValueSelectRepeater_ctl02_VariableValueSelect_VariableValueSelect_ValuesListBox"
                 selected_commodity_labels = []
                 try:
@@ -363,46 +345,42 @@ def scrape_all():
                 try:
                     submit_button = page.wait_for_selector("input[type='submit']", timeout=120000)
                     submit_button.click()
-                    # "load" lang para hindi ma-stuck sa networkidle (mabigat ang OpenSTAT)
                     page.wait_for_load_state("load", timeout=90000)
 
                     cleaned_data = download_and_process_excel(
                         page, url_index, timestamp, urls,
                         selected_commodity_labels=selected_commodity_labels
                     )
-                    if not cleaned_data.empty:
+                    if cleaned_data is not None and not cleaned_data.empty:
                         url_data_frames.append(cleaned_data)
                         batch_rows = len(cleaned_data)
                         total_this_url = sum(len(df) for df in url_data_frames)
-                        console.print(f"[green]✔ Processed selection:[/green] {len(current_batch)} years [dim](batch: {batch_rows} rows, total this URL: {total_this_url})[/dim]")
+                        console.print(f"[green]✔ Processed: {len(current_batch)} years (batch: {batch_rows} rows, total this URL: {total_this_url})[/green]")
                     else:
                         console.print("[yellow]No data returned[/yellow]")
 
                 except Exception as e:
-                    console.print(f"[red] Submission error:[/red] {e}")
+                    console.print(f"[red]Submission error: {e}[/red]")
 
                 remaining_years = [y for y in remaining_years if y not in current_batch]
                 if remaining_years:
-                    console.print(f"[dim]Natitirang taon sa URL na ito: {len(remaining_years)} — kukunin sa susunod na batch.[/dim]")
+                    console.print(f"[dim]Remaining years: {len(remaining_years)}[/dim]")
                 else:
-                    console.print(f"[dim]Lahat ng taon sa URL na ito nakuha na.[/dim]")
+                    console.print("[dim]All years for this URL done.[/dim]")
 
             all_data_frames.extend(url_data_frames)
 
-            # Save checkpoint only when we finished this URL without skipping due to 522/timeout
             if not url_skipped_due_to_error:
                 completed_url_indices.add(url_index)
                 _save_checkpoint(completed_url_indices)
-                console.print(f"[dim]Checkpoint saved: URL {url_index + 1} marked complete.[/dim]")
+                console.print(f"[dim]Checkpoint saved: URL {url_index + 1} complete.[/dim]")
 
         browser.close()
 
     if all_data_frames:
         final_df = pd.concat(all_data_frames, ignore_index=True)
-        # Siguraduhing may Commodity column para makita ng supervisor (Rice, Cereals, etc.)
         if "Commodity" not in final_df.columns:
             final_df["Commodity"] = final_df.get("Commodity Type", "N/A")
-        # Ayos ng column order: Geolocation, Commodity Type, Commodity, Year, Month, Price
         col_order = ["Geolocation", "Commodity Type", "Commodity", "Year", "Month", "Price"]
         final_df = final_df[[c for c in col_order if c in final_df.columns]]
         output_dir = os.path.join(os.path.expanduser("~"), "Desktop", "Agri-Price-Data_Files")
@@ -410,66 +388,56 @@ def scrape_all():
 
         output_file = os.path.join(output_dir, f"openstat_with_commodity_{timestamp}.csv")
         final_df.to_csv(output_file, index=False)
-        console.print(f"[bold green]✔ Saved combined file (may Commodity column):[/bold green] {output_file}")
+        console.print(f"[bold green]✔ Saved: {output_file}[/bold green]")
 
         store_data_in_mysql(final_df)
-        # Ipaalam kung saan makikita ang CSV pag successful
-        output_dir_abs = os.path.abspath(output_dir)
-        console.print(f"[bold cyan]Lahat ng CSV ay nandito:[/bold cyan] [green]{output_dir_abs}[/green]")
+        console.print(f"[bold cyan]CSV location: {os.path.abspath(output_dir)}[/bold cyan]")
     else:
         console.print("[bold red]No data was scraped![/bold red]")
 
-    console.rule("[bold cyan]Scraper Finished")
+    console.rule("[bold cyan]OpenSTAT Scraper Finished")
 
 
 def wait_for_cloudflare_check(page, url_index, timeout=300000):
-    """Hintayin ang Cloudflare: auto-verification (5–25s) o manual 'Verify you are human'."""
+    """Hintayin ang Cloudflare: auto-verification o manual 'Verify you are human'."""
     year_selector = "#ctl00_ContentPlaceHolderMain_VariableSelector1_VariableSelector1_VariableSelectorValueSelectRepeater_ctl03_VariableValueSelect_VariableValueSelect_ValuesListBox"
     try:
         page.wait_for_selector(year_selector, timeout=8000)
         return
     except Exception:
         pass
-    # "Performing security verification" – minsan naa-auto complete sa 10–20s
-    console.print("[dim]Nakita ang Cloudflare. Naghihintay hanggang 20s kung aano-verify...[/dim]")
+    console.print("[dim]Cloudflare detected. Waiting up to 20s for auto-verify...[/dim]")
     for _ in range(4):
         time.sleep(5)
         try:
             if page.query_selector(year_selector):
-                console.print("[green]Nakapasok na (auto). Tuloy ang scrape.[/green]")
+                console.print("[green]In. Continuing scrape.[/green]")
                 return
         except Exception:
             pass
-    # Kung may checkbox / CAPTCHA, kailangan i-click ng user
-    console.print("[yellow]Kung nakikita mo ang 'Verify you are human', i-click mo ang checkbox sa browser.[/yellow]")
-    console.print("[yellow]Kung may CAPTCHA, sagutin mo. Naghihintay hanggang 5 minuto...[/yellow]")
+    console.print("[yellow]If you see 'Verify you are human', click the checkbox. Waiting up to 5 min...[/yellow]")
     try:
         page.wait_for_selector(year_selector, timeout=timeout)
-        console.print("[green]Nakapasok na. Tuloy ang scrape.[/green]")
+        console.print("[green]In. Continuing.[/green]")
     except Exception as e:
-        console.print(f"[red]Timeout: hindi lumabas ang OpenSTAT. {e}[/red]")
-        console.print("[yellow]Gamitin ang manual mode: mag-download sa normal browser, ilagay sa manual_downloads, then: python run_manual.py[/yellow]")
+        console.print(f"[red]Timeout: {e}[/red]")
+        console.print("[yellow]Manual mode: download in browser, put files in data/manual_downloads, then: python -m src.services.openstat (and call process_manual_downloads)[/yellow]")
         raise
 
 
-MAX_NAV_ATTEMPTS = 4  # Huwag mag-retry nang walang hanggan sa timeout
+MAX_NAV_ATTEMPTS = 4
 
 
 def navigate_with_retries(page, url, timeout=45000):
-    """
-    Navigate to a URL, retrying on errors. Max MAX_NAV_ATTEMPTS tries.
-    Returns True on success, False if we give up (caller should skip this URL).
-    Raises on fatal errors (e.g. browser closed).
-    """
+    """Navigate to URL with retries. Returns True on success, False to skip URL."""
     attempt = 1
     while attempt <= MAX_NAV_ATTEMPTS:
         try:
-            print(f"→ Navigating to URL (Attempt {attempt}/{MAX_NAV_ATTEMPTS})...")
+            print(f"→ Navigating (Attempt {attempt}/{MAX_NAV_ATTEMPTS})...")
             page.goto(url, timeout=timeout, wait_until="domcontentloaded")
             page.wait_for_load_state("load", timeout=30000)
-            # Error 522 = connection timed out between Cloudflare and origin (openstat.psa.gov.ph)
             if _page_is_cloudflare_522(page):
-                console.print(f"[yellow]Cloudflare Error 522 (origin server did not respond). Retry {attempt}/{MAX_NAV_ATTEMPTS}.[/yellow]")
+                console.print(f"[yellow]Cloudflare Error 522. Retry {attempt}/{MAX_NAV_ATTEMPTS}.[/yellow]")
                 attempt += 1
                 time.sleep(5)
                 continue
@@ -479,7 +447,7 @@ def navigate_with_retries(page, url, timeout=45000):
             print(f"Navigation error: {e}")
 
             if "Target" in err_str and "closed" in err_str:
-                console.print("[red]Browser o page na-close. Huwag isara ang window habang tumatakbo ang scraper.[/red]")
+                console.print("[red]Browser closed. Do not close the window while scraping.[/red]")
                 raise
 
             if "ERR_NAME_NOT_RESOLVED" in err_str or "ERR_NETWORK_CHANGED" in err_str or "net::ERR_INTERNET_DISCONNECTED" in err_str:
@@ -492,12 +460,12 @@ def navigate_with_retries(page, url, timeout=45000):
                 except Exception as reload_error:
                     print(f"Reload failed: {reload_error}")
             elif "Timeout" in err_str:
-                console.print(f"[yellow]Timeout (attempt {attempt}/{MAX_NAV_ATTEMPTS}). Will skip this URL if all retries fail.[/yellow]")
+                console.print(f"[yellow]Timeout (attempt {attempt}/{MAX_NAV_ATTEMPTS}).[/yellow]")
             else:
                 print(f"Unexpected error. Retrying... ({e})")
 
             if attempt >= MAX_NAV_ATTEMPTS:
-                console.print(f"[red]Nag-timeout o nag-fail pagkatapos ng {MAX_NAV_ATTEMPTS} attempts. Skipping this URL.[/red]")
+                console.print(f"[red]Failed after {MAX_NAV_ATTEMPTS} attempts. Skipping this URL.[/red]")
                 return False
             time.sleep(5)
             attempt += 1
