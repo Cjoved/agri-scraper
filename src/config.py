@@ -4,7 +4,7 @@ All scrapers and services use DATA_DIR for inputs/outputs.
 """
 import os
 
-# Project root = folder containing src/ (OpenStatv2)
+# Project root = folder containing src/ (Agri-Scraper)
 _THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(_THIS_DIR)
 DATA_DIR = os.path.join(PROJECT_ROOT, "data")

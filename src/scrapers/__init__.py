@@ -1,3 +1,3 @@
-# Scrapers: PhilRice PDF, PhilRice News, PinoyRice, OpenSTAT (PSA).
+# Scrapers: PhilRice PDF, PhilRice News, PinoyRice, OpenSTAT (PSA), IRRI Philippines.
 
-__all__ = ["philrice", "philrice_news", "pinoyrice", "openstat"]
+__all__ = ["philrice", "philrice_news", "pinoyrice", "openstat", "irri"]
