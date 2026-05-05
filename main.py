@@ -1,11 +1,13 @@
 """
 Main entry: isa lang pwedeng tumakbo bawat run (PhilRice, PhilRice News, PinoyRice, OpenSTAT, o IRRI).
-Control via .env: PHILRICE, PHILRICE_NEWS, PINOYRICE, OPENSTAT, IRRI (true/false).
+Control via .env: PHILRICE, PHILRICE_NEWS, PINOYRICE, OPENSTAT, IRRI, PRISM (true/false).
 - PHILRICE=true: PhilRice PDF scrape -> process only.
 - PHILRICE_NEWS=true: PhilRice News scrape -> process only (bukod sa PhilRice PDF).
 - PINOYRICE=true: PinoyRice scrape (text + PDF) -> pinoyrice_corpus.jsonl.
 - OPENSTAT=true: OpenSTAT scrape.
 - IRRI=true: IRRI Philippines scrape (text + PDFs) -> data/irri_processed/text, data/irri_pdfs.
+- PRISM=true: Prism scrape -> data/prism_processed, tapos process pipeline.
+- PRISM=true + PRISM_JOB=export_yield_csv: buong PRiSM Yield table -> isang CSV (HTTP; walang process step).
 """
 import os
 from dotenv import load_dotenv
@@ -38,30 +40,39 @@ def _irri_enabled() -> bool:
     return v in ("true", "1", "yes")
 
 
+def _prism_enabled() -> bool:
+    v = (os.getenv("PRISM") or "false").strip().lower()
+    return v in ("true", "1", "yes")
+
+
 def main():
     from rich.console import Console
     console = Console()
 
-    console.rule("[bold]Main – PhilRice / PhilRice News / PinoyRice / OpenSTAT / IRRI (isa lang per run)[/bold]")
+    console.rule("[bold]Main – PhilRice / PhilRice News / PinoyRice / OpenSTAT / IRRI / Prism (isa lang per run)[/bold]")
     philrice = _philrice_enabled()
     philrice_news = _philrice_news_enabled()
     pinoyrice = _pinoyrice_enabled()
     openstat = _openstat_enabled()
     irri = _irri_enabled()
-    console.print(f"[dim]PHILRICE={os.getenv('PHILRICE', 'false')}  PHILRICE_NEWS={os.getenv('PHILRICE_NEWS', 'false')}  PINOYRICE={os.getenv('PINOYRICE', 'false')}  OPENSTAT={os.getenv('OPENSTAT', 'true')}  IRRI={os.getenv('IRRI', 'false')}[/dim]")
+    prism = _prism_enabled()
+    console.print(f"[dim]PHILRICE={os.getenv('PHILRICE', 'false')}  PHILRICE_NEWS={os.getenv('PHILRICE_NEWS', 'false')}  PINOYRICE={os.getenv('PINOYRICE', 'false')}  OPENSTAT={os.getenv('OPENSTAT', 'true')}  IRRI={os.getenv('IRRI', 'false')}  PRISM={os.getenv('PRISM', 'false')}[/dim]")
 
-    if philrice and (philrice_news or pinoyrice or openstat or irri):
+    if philrice and (philrice_news or pinoyrice or openstat or irri or prism):
         console.print("[yellow]PhilRice (PDF) uuna (isa lang per run).[/yellow]")
-        philrice_news = pinoyrice = openstat = irri = False
-    elif philrice_news and (pinoyrice or openstat or irri):
+        philrice_news = pinoyrice = openstat = irri = prism = False
+    elif philrice_news and (pinoyrice or openstat or irri or prism):
         console.print("[yellow]PhilRice News uuna.[/yellow]")
-        pinoyrice = openstat = irri = False
-    elif pinoyrice and (openstat or irri):
+        pinoyrice = openstat = irri = prism = False
+    elif pinoyrice and (openstat or irri or prism):
         console.print("[yellow]PinoyRice uuna.[/yellow]")
-        openstat = irri = False
-    elif openstat and irri:
+        openstat = irri = prism = False
+    elif openstat and (irri or prism):
         console.print("[yellow]OpenSTAT uuna.[/yellow]")
-        irri = False
+        irri = prism = False
+    elif irri and prism:
+        console.print("[yellow]IRRI uuna.[/yellow]")
+        prism = False
 
     if philrice:
         console.rule("[bold cyan]PhilRice – PDF Scrape[/bold cyan]")
@@ -92,8 +103,19 @@ def main():
         console.rule("[bold cyan]IRRI – Process (.txt → CPT JSON)[/bold cyan]")
         from src.services import irri as processing_irri
         processing_irri.run()
+    elif prism:
+        from src.scrapers import prism as prism_scraper
+        job = (os.getenv("PRISM_JOB") or "").strip().lower()
+        if job in ("export_yield_csv", "export_yield"):
+            prism_scraper.run()
+        else:
+            console.rule("[bold cyan]Prism – Scrape[/bold cyan]")
+            prism_scraper.run()
+            console.rule("[bold cyan]Prism – Process[/bold cyan]")
+            from src.services import prism as processing_prism
+            processing_prism.run()
     else:
-        console.print("[yellow]Set PHILRICE=true, PHILRICE_NEWS=true, PINOYRICE=true, OPENSTAT=true, o IRRI=true sa .env (isa lang per run).[/yellow]")
+        console.print("[yellow]Set PHILRICE=true, PHILRICE_NEWS=true, PINOYRICE=true, OPENSTAT=true, IRRI=true, o PRISM=true sa .env (isa lang per run).[/yellow]")
 
     console.rule("[bold green]Done[/bold green]")
 
