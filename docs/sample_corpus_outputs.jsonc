@@ -1,0 +1,90 @@
+{
+  // Sample corpus outputs (trimmed) from current project files.
+  // Purpose: presentation/demo screenshot reference.
+
+  "philrice_corpus_jsonl_sample": {
+    "source_file": "philrice_processed/philrice_corpus.jsonl",
+    "sample_record": {
+      "text": "Ang tuyong palay ay mas mababa ang moisture content kaysa sa sariwang palay... [trimmed]",
+      "input": "Ang tuyong palay ay mas mababa ang moisture content kaysa sa sariwang palay... [trimmed]",
+      "content": "Ang tuyong palay ay mas mababa ang moisture content kaysa sa sariwang palay... [trimmed]",
+      "source": "philrice",
+      "doc_id": "1-Bakit-magkaiba-ang-presyo-ng-sariwa-at-tuyong-palay_page_1",
+      "filename": "1-Bakit-magkaiba-ang-presyo-ng-sariwa-at-tuyong-palay.pdf",
+      "page": 1
+    }
+  },
+
+  "philrice_news_corpus_jsonl_sample": {
+    "source_file": "philrice_news_processed/philrice_news_corpus.jsonl",
+    "sample_record": {
+      "text": "Strict rules imposed vs. COVID-19... [trimmed]",
+      "input": "Strict rules imposed vs. COVID-19... [trimmed]",
+      "content": "Strict rules imposed vs. COVID-19... [trimmed]",
+      "source": "philrice_news",
+      "doc_id": "philrice_news_01-01-21",
+      "filename": "philrice_news_01-01-21.txt"
+    }
+  },
+
+  "pinoyrice_text_corpus_jsonl_sample": {
+    "source_file": "pinoyrice_processed/pinoyrice_corpus.jsonl",
+    "sample_record": {
+      "text": "PSB Rc2 (NAHALIN) Average yield: 5.1 t/ha... [trimmed]",
+      "input": "PSB Rc2 (NAHALIN) Average yield: 5.1 t/ha... [trimmed]",
+      "content": "PSB Rc2 (NAHALIN) Average yield: 5.1 t/ha... [trimmed]",
+      "source": "pinoyrice",
+      "url": "https://www.pinoyrice.com/wp-content/uploads/rice-varieties/NAHALIN.html",
+      "title": "PSB Rc2  (NAHALIN)",
+      "doc_id": "wp-content_uploads_rice-varieties_NAHALIN.html"
+    }
+  },
+
+  "pinoyrice_pdfs_corpus_jsonl_sample": {
+    "source_file": "pinoyrice_processed/pinoyrice_pdfs_corpus.jsonl",
+    "sample_record": {
+      "text": "1. Pili-on ang maayo kinahon nga sab-ugan sang binhi... [trimmed]",
+      "input": "1. Pili-on ang maayo kinahon nga sab-ugan sang binhi... [trimmed]",
+      "content": "1. Pili-on ang maayo kinahon nga sab-ugan sang binhi... [trimmed]",
+      "source": "pinoyrice",
+      "doc_id": "10-ka-pamaagi-sa-pagprodukto-sang-kaugalingon-nga-binhi_page_1",
+      "filename": "10-ka-pamaagi-sa-pagprodukto-sang-kaugalingon-nga-binhi.pdf",
+      "page": 1
+    }
+  },
+
+  "irri_corpus_jsonl_sample": {
+    "source_file": "data/irri_processed/irri_corpus.jsonl",
+    "sample_record": {
+      "text": "DSRC members with IRRI DDGR Jacqueline Hughes load seeds... [trimmed]",
+      "input": "DSRC members with IRRI DDGR Jacqueline Hughes load seeds... [trimmed]",
+      "content": "DSRC members with IRRI DDGR Jacqueline Hughes load seeds... [trimmed]",
+      "source": "irri",
+      "doc_id": "06_february_2018_los_baños_philippines_the_international_rice_research_institute_irri_is_targeting_m",
+      "filename": "06 February 2018, Los Baños, Philippines ... .txt"
+    }
+  },
+
+  "prism_yield_csv_sample": {
+    // Note: PRISM yield export is CSV output.
+    "source_file": "data/prism_processed/prism_yield_export.csv",
+    "csv_header": [
+      "Year",
+      "Semester",
+      "Region",
+      "Province",
+      "Municipality",
+      "Average Yield (ton/ha)",
+      "Date and time of Scraping"
+    ],
+    "sample_row": {
+      "Year": 2018,
+      "Semester": "1st Semester (Sept16-Mar15)",
+      "Region": "CAR",
+      "Province": "Abra",
+      "Municipality": "Bangued",
+      "Average Yield (ton/ha)": 3.03,
+      "Date and time of Scraping": "2026-05-05 15:11:11"
+    }
+  }
+}

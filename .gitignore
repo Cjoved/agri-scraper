@@ -19,7 +19,25 @@ manual_downloads/
 scraper_downloads/
 *.csv
 *.json
+*.jsonl
 *.db
+
+# ---- Scraped outputs (keep folder placeholders only) ----
+data/**
+!data/**/
+!data/.gitkeep
+!data/**/.gitkeep
+
+# Legacy downloads still sitting at the project root
+/error_logs/
+/screenshots/
+/philrice_news/
+/philrice_pdfs/
+/philrice_news_processed/
+/philrice_processed/
+/pinoyrice_pdfs/
+/pinoyrice_processed/
+/pinoyrice_txt/
 
 # ---- System / IDE Files ----
 *.log
@@ -30,6 +48,7 @@ Thumbs.db
 .DS_Store
 *.tmp
 *.lock
+.idea/
 
 # ---- Git Specific ----
 *.orig
@@ -38,6 +57,9 @@ Thumbs.db
 *.patch
 *.pdf
 *.txt
+!requirements.txt
+!requirements-prism.txt
+!docs/**/*.txt
 
 # ---- Virtual env (do not track) ----
 venv/

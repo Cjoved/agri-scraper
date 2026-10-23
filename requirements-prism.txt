@@ -1,0 +1,3 @@
+# Prism: buong Scrapling (fetchers + shell + AI/MCP extras na kasama ng [all]).
+# Pagkatapos: scrapling install
+scrapling[all]>=0.4.0

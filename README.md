@@ -58,6 +58,19 @@ We support three CPT conversion patterns (mirrors the `datacuration` notebooks):
 
 ---
 
+## Streamlit UI (optional)
+
+Run scrapers from a browser with live CMD-style logs and an output checklist:
+
+```bash
+pip install -r ui/requirements.txt
+streamlit run ui/app.py
+```
+
+See [`ui/README.md`](ui/README.md). The UI does not replace `python main.py`; it launches the same entry point in a subprocess.
+
+---
+
 ## How to run (scraping)
 
 From the project root:
@@ -112,6 +125,7 @@ If you plan to share the curated outputs, point stakeholders to the `datacuratio
 ## Documentation
 
 - `docs/` contains project notes, specs, and the presentation markdown.
+- **Automation phasing + scrape schedule:** [`docs/AUTOMATION_ROADMAP.md`](docs/AUTOMATION_ROADMAP.md) — full plan; copy tasks from [`docs/AUTOMATION_TASKLIST.txt`](docs/AUTOMATION_TASKLIST.txt) or [`docs/AUTOMATION_TASKLIST.tsv`](docs/AUTOMATION_TASKLIST.tsv).
 
 ---
 

@@ -1,0 +1,178 @@
+{
+  // OpenStatv2 scraper output examples (JSONC for screenshot/reference)
+  // Note: This is an example file only, not a runtime config.
+
+  "project": "OpenStatv2",
+  "generated_for": "Presentation / screenshot",
+
+  "examples": {
+    "philrice_pdf_scraper": {
+      // Raw outputs from scraping stage
+      "raw_outputs": [
+        "data/philrice_pdfs/*.pdf",
+        "data/philrice_pdfs/*.txt"
+      ],
+      // Curated corpus output
+      "curated_output_file": "philrice_processed/philrice_corpus.jsonl",
+      "record_format_example": {
+        "text": "29TH NATIONAL RICE R&D CONFERENCE...",
+        "input": "29TH NATIONAL RICE R&D CONFERENCE...",
+        "content": "29TH NATIONAL RICE R&D CONFERENCE...",
+        "source": "philrice",
+        "doc_id": "13003CES_page_3",
+        "filename": "13003CES.pdf",
+        "page": 3
+      }
+    },
+
+    "philrice_news_scraper": {
+      "raw_outputs": [
+        "data/philrice_news/*.txt"
+      ],
+      "curated_output_file": "philrice_news_processed/philrice_news_corpus.jsonl",
+      "record_format_example": {
+        "text": "Strict rules imposed vs. COVID-19 ...",
+        "input": "Strict rules imposed vs. COVID-19 ...",
+        "content": "Strict rules imposed vs. COVID-19 ...",
+        "source": "philrice_news",
+        "doc_id": "philrice_news_01-01-21",
+        "filename": "philrice_news_01-01-21.txt"
+      }
+    },
+
+    "pinoyrice_scraper_text": {
+      "raw_outputs": [
+        "data/pinoyrice_txt/*.txt"
+      ],
+      "curated_output_file": "pinoyrice_processed/pinoyrice_corpus.jsonl",
+      "record_format_example": {
+        "text": "PSB Rc2 (NAHALIN)...",
+        "input": "PSB Rc2 (NAHALIN)...",
+        "content": "PSB Rc2 (NAHALIN)...",
+        "source": "pinoyrice",
+        "url": "https://www.pinoyrice.com/wp-content/uploads/rice-varieties/NAHALIN.html",
+        "title": "PSB Rc2 (NAHALIN)",
+        "doc_id": "wp-content_uploads_rice-varieties_NAHALIN.html"
+      }
+    },
+
+    "pinoyrice_scraper_pdfs": {
+      "raw_outputs": [
+        "data/pinoyrice_pdfs/*.pdf"
+      ],
+      "curated_output_file": "pinoyrice_processed/pinoyrice_pdfs_corpus.jsonl",
+      "record_format_example": {
+        "text": "4 Hakbang sa Pagpapatubo ng Buto...",
+        "input": "4 Hakbang sa Pagpapatubo ng Buto...",
+        "content": "4 Hakbang sa Pagpapatubo ng Buto...",
+        "source": "pinoyrice",
+        "doc_id": "4-hakbang-sa-pagpapatubo-ng-buto_page_1",
+        "filename": "4-hakbang-sa-pagpapatubo-ng-buto.pdf",
+        "page": 1
+      }
+    },
+
+    "irri_scraper": {
+      "raw_outputs": [
+        "data/irri_processed/text/*.txt",
+        "data/irri_pdfs/*.pdf"
+      ],
+      "curated_output_file": "data/irri_processed/irri_corpus.jsonl",
+      "record_format_example": {
+        "text": "DSRC members with IRRI DDGR Jacqueline Hughes ...",
+        "input": "DSRC members with IRRI DDGR Jacqueline Hughes ...",
+        "content": "DSRC members with IRRI DDGR Jacqueline Hughes ...",
+        "source": "irri",
+        "doc_id": "06_february_2018_...",
+        "filename": "06 February 2018 ... .txt"
+      }
+    },
+
+    "prism_yield_export_job": {
+      // This mode outputs CSV, not JSONL
+      "raw_outputs": [
+        "HTTP response data from PRiSM endpoints"
+      ],
+      "curated_output_file": "data/prism_processed/prism_yield_export.csv",
+      "csv_header_example": [
+        "Year",
+        "Semester",
+        "Region",
+        "Province",
+        "Municipality",
+        "Average Yield (ton/ha)",
+        "Date and time of Scraping"
+      ],
+      "csv_row_example": {
+        "Year": 2018,
+        "Semester": "1st Semester (Sept16-Mar15)",
+        "Region": "CAR",
+        "Province": "Abra",
+        "Municipality": "Bangued",
+        "Average Yield (ton/ha)": 3.03,
+        "Date and time of Scraping": "2026-05-05 15:11:11"
+      }
+    },
+
+    "prism_scrapling_pages_mode": {
+      // This mode outputs JSONL records + plain text pages
+      "raw_outputs": [
+        "data/prism_txt/*.txt"
+      ],
+      "curated_output_file": "data/prism_processed/prism_corpus.jsonl",
+      "record_format_example": {
+        "text": "...page body...",
+        "input": "...page body...",
+        "content": "...page body...",
+        "source": "prism",
+        "url": "https://prism.philrice.gov.ph/wp-dynamicreports/...",
+        "title": "PRiSM page title",
+        "doc_id": "prism_page_slug"
+      }
+    },
+
+    "openstat_scraper": {
+      // OpenSTAT final export is CSV on Desktop path
+      "raw_outputs": [
+        "data/openstat_downloads/*.xlsx"
+      ],
+      "curated_output_file": "Desktop/Agri-Price-Data_Files/openstat_with_commodity_<timestamp>.csv",
+      "csv_column_order": [
+        "Geolocation",
+        "Commodity Type",
+        "Commodity",
+        "Year",
+        "Month",
+        "Price"
+      ],
+      "csv_row_example": {
+        "Geolocation": "Region I",
+        "Commodity Type": "Commercial Crops",
+        "Commodity": "Palay",
+        "Year": 2023,
+        "Month": "January",
+        "Price": 19.85
+      }
+    }
+  },
+
+  "checkpoint_examples": {
+    // Used for resume/skip logic
+    "philrice_checkpoint": {
+      "downloaded_urls": [
+        "https://www.philrice.gov.ph/download/....pdf"
+      ]
+    },
+    "pinoyrice_checkpoint": {
+      "scraped_urls": [
+        "https://www.pinoyrice.com/",
+        "https://www.pinoyrice.com/palaycheck/"
+      ]
+    },
+    "philrice_news_checkpoint": {
+      "scraped_urls": [
+        "https://www.philrice.gov.ph/some-news-article"
+      ]
+    }
+  }
+}

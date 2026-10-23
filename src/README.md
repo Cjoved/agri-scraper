@@ -6,7 +6,7 @@
 - **services** — Processing pipelines: PhilRice PDFs, PhilRice News .txt, PinoyRice (text + PDF). All read/write under `data/`.
 - **scrapers** — Still at project root (`scraper_philrice.py`, `scraper_pinoyrice.py`, `scraper_philrice_news.py`) but use `src.config.data_path` and `src.utils` / `src.agri_corpus`; outputs go to `data/`.
 
-Run from **project root** (OpenStatv2):
+Run from **project root** (Agri-Scraper):
 - `python main.py` — entry point (PhilRice / PhilRice News / PinoyRice / OpenSTAT via .env).
 - `python processing_philrice.py` — thin wrapper → `src.services.philrice.run()`.
 - `python scraper_philrice.py` — scrapes to `data/philrice_pdfs/`, checkpoint in `data/checkpoints/`.
